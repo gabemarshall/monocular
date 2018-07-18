@@ -3,6 +3,7 @@ require 'json'
 require 'slop'
 require_relative('../lib/enum')
 require_relative('../lib/api_helper')
+require_relative('../lib/chores')
 
 opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
@@ -28,6 +29,11 @@ end
 def get_services(query)
   Api.services_from_search($API_HOST, $API_KEY, query)
 end
+
+def get_all_domains()
+  Api.get_all_domains($API_HOST, $API_KEY)
+end
+
 
 def take_job(id)
   conn = Faraday.new $API_HOST
@@ -157,6 +163,12 @@ loop do
           services = get_services(job_target)
           results = scan.update_http(services)
           job_results[:services] = results
+          finalize(job_results, job_id)
+        elsif task_type == 6
+          puts "Job Type => Domain Takeover"
+          domain_file_path = get_domains()
+          results = scan.domain_takeover(domain_file_path)
+          job_results[:domains] = results
           finalize(job_results, job_id)
         end
       end

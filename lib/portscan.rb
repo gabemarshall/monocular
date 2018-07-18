@@ -22,7 +22,7 @@ class Portscan
 
         rand_id = (0...10).map { ('a'..'z').to_a[rand(20)] }.join
         portscan_temp_file = "nmap-#{rand_id}.xml"
-        portscan_args = "#{target} -p #{args} -Pn -n --open -T4 -vvv --script=banner -oX output/#{portscan_temp_file} -oN output/#{rand_id}.nmap"
+        portscan_args = "#{target} -p #{args} -Pn -n --open -T4 -vvv -oX output/#{portscan_temp_file} -oN output/#{rand_id}.nmap"
         
         # Split into an array so that we can safely pass them to a system call
         safe_arguments = portscan_args.split(" ")

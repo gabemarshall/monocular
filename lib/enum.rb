@@ -1,9 +1,10 @@
 require_relative('./portscan')
-require_relative('./gobuster')
+require_relative('./brute')
 require_relative('./banner')
 require_relative('./http')
 require_relative('./crt')
 require_relative('./resolver')
+require_relative("../tools/aquatone/lib/aquatone")
 require 'resolv'
 require 'diffy'
 require 'paint'
@@ -36,7 +37,7 @@ class Enumeration
     domains = Domain.all
 
     domains.each do |domain|
-      Gobuster.run(domain.dns_name)
+      Brute.run(domain.dns_name)
     end
   end
 
@@ -100,11 +101,11 @@ class Enumeration
 
       puts status_msg
       temp_services = []
-      wq = WorkQueue.new 15
+      wq = WorkQueue.new 25
       services.each do |service|
         wq.enqueue_b do
-          banner = Banner.new.grab(service[:ip], service[:port].to_i)
-          temp_service = {:ip => service[:ip], :port => service[:port], :banner => banner, service_type: service[:service_type]}
+          banner_grab = Banner.new.grab(service[:ip], service[:port].to_i)
+          temp_service = {:ip => service[:ip], :port => service[:port], :banner => banner_grab[:banner], service_type: banner_grab[:type]}
           puts temp_service.inspect
           temp_services.push(temp_service)
         end
@@ -146,16 +147,41 @@ class Enumeration
     end
     if recursive
       # use a small wordlist when doing recursive enumeration
-      gobuster_discoveries = Gobuster.run(domain, 'monocle-tiny')
+      brute_discoveries = Brute.run(domain, 'monocle-tiny')
     else
-      gobuster_discoveries = Gobuster.run(domain, 'monocle-tiny')
+      brute_discoveries = Brute.run(domain, 'monocle')
     end
 
 
-    unless gobuster_discoveries.nil?
-      discovered_records.concat(gobuster_discoveries)
+    unless brute_discoveries.nil?
+      discovered_records.concat(brute_discoveries)
     end
     return discovered_records
+  end
+
+  def takeovers(domains)
+  
+    options = {
+      :fallback_nameservers => %w(8.8.8.8 8.8.4.4),
+      :file => 'takeovers.txt',
+      :domain => 'all.com',
+      :output => 'takeovers-log.txt',
+      :threads => 25
+    }
+
+
+    takeover = Aquatone::Commands::Takeover.run(options)
+    
+    if takeover.length == 0
+      puts "No vulnerable domains"
+    else
+      takeover.each do |vuln|
+        msg = "Potential #{vuln[1]['service']} takeover on #{vuln[0]} (#{vuln[1]['resource']['value']})"
+        domain = vuln[0]
+        Api.notify_takeover(domain, msg)
+      end
+    end
+
   end
 
   def enumerate_http(services, domains = [])
@@ -180,7 +206,8 @@ class Enumeration
       #     end
       #   end
       # end      
-
+    else
+      services_enum_http = services
     end
     
 
@@ -188,20 +215,20 @@ class Enumeration
     
     Typhoeus::Config.user_agent = "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/MonocleApp) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
 
-    hydra = Typhoeus::Hydra.new(max_concurrency: 1)
+    hydra = Typhoeus::Hydra.new(max_concurrency: 15)
     #monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5, proxy: 'http://127.0.0.1:8080'}
     monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
 
     # save a copy of the nmap results for use on line...
     $resps = []
     $nmap_services = services
-    binding.pry
+    
     services_enum_http.each do |service|
     
 
       begin
         if service[:banner]
-          if service[:banner].include?('http')
+          if service[:service_type].include?('http')
             if !service[:hostname].nil?
               uri = service[:hostname]
               puts "Scheduling HTTP enumeration for #{uri} "
@@ -212,7 +239,6 @@ class Enumeration
             output = {}
 
             if service[:port].to_s == "443" || service[:port].to_s == "8443"
-              #output = HttpGrabber.new.grab_one(uri, service[:port], "https")
               puts "Port is #{service[:port]}"
               puts "Trying https://#{uri}:#{service[:port]}/"
              request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
@@ -221,7 +247,7 @@ class Enumeration
                   headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
                   banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
 
-                  $resps.push({ip: service[:ip], port: service[:port], hostname: service[:hostname], banner: banner, status_code: response.code, uri: response.effective_url, description: headers})
+                  $resps.push({ip: service[:ip], port: service[:port], hostname: service[:hostname], banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'https'})
                 end              
 
             else
@@ -234,7 +260,7 @@ class Enumeration
                 headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
                 banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
 
-                $resps.push({ip: service[:ip], port: service[:port], hostname: service[:hostname], banner: banner, status_code: response.code, uri: response.effective_url, description: headers})
+                $resps.push({ip: service[:ip], port: service[:port], hostname: service[:hostname], banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'http'})
               end
 
             end
@@ -252,9 +278,13 @@ class Enumeration
     end
     hydra.run
 
-    nmap_values = $nmap_services.delete_if {|service| service[:banner].include?('http') }
+    
+    nmap_values = $nmap_services.delete_if {|service| service[:service_type].include?('http') }
     $resps = $resps+nmap_values
-    $resps.uniq! {|hash| hash.values_at(:banner)}
+    
+    $resps = $resps.sort_by{|a|a['description'].length rescue 0}.uniq{|h| h.values_at(:ip, :port, :hostname)}
+    #$resps.uniq! {|hash| hash.values_at(:banner)}
+
     return $resps
   end
 
@@ -312,3 +342,4 @@ class Enumeration
   end
 
 end
+

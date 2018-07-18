@@ -50,7 +50,7 @@ class Banner
 
     yield banner if block_given?
     if banner == nil
-      banner = "Unknown"
+      
     end
     return banner
   end
@@ -62,14 +62,27 @@ class Banner
     rescue => exception
       banner = nil
     end
+    
+    type = "unknown"
 
     if banner.nil?
-      puts "check"
       response = Typhoeus.head("https://#{host}:#{port}/", ssl_verifypeer: false, timeout: 5, ssl_verifyhost: 0)
       banner = response.response_headers
+      puts banner
+      if !banner.nil? 
+        type = "https"
+      end
     end
 
-    return banner
+    if type == "unknown" && !banner.nil?
+      if banner.include?("HTTP")
+        type = "http"
+      end
+    end
+
+    banner_data = {:banner => banner, :type => type}
+
+    return banner_data
   end
 
   def tcp(host, port)

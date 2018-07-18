@@ -30,6 +30,35 @@ module Api
     puts exception.backtrace
   end
 
+  def Api.notify_takeover(domain, msg)
+    conn = Faraday.new $API_HOST
+    
+    resp = conn.post do |req|
+      req.url '/api/issue/create'
+      req.headers['X-Monocle-Key'] = $API_KEY
+      req.body = 'severity=critical&rule='+domain+'&name='+msg
+    end
+
+    return resp.body
+  end
+
+
+  def Api.get_all_domains()
+
+    conn = Faraday.new $API_HOST
+    resp = conn.get do |req|
+      req.url '/api/domain/all'
+      req.headers['X-Monocle-Key'] = $API_KEY
+    end
+    
+    data = JSON.parse(resp.body)
+
+    return data
+
+  rescue => exception
+    puts exception.backtrace
+  end
+
 end
 
 if opts[:debug]
