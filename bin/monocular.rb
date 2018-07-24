@@ -59,11 +59,21 @@ def finalize(data, job_id)
   puts "Bye!"
 end
 
+def update_job(job_id, status)
+  conn = Faraday.new $API_HOST
+  resp = conn.post do |req|
+    req.url '/api/job/update'
+    req.headers['X-Monocle-Key'] = $API_KEY
+    req.body = 'id='+job_id.to_s+'&status='+status
+  end
+end
+
 loop do
   job = check_jobs
 
   this_job = job['job_schedule'] rescue nil
   unless this_job.nil?
+    puts "Taking available job"
     job_id = job['id']
     job_sched = job['job_schedule']
     job_target = job['job_target']
@@ -81,7 +91,7 @@ loop do
         job_results = {}
 
         if task_type == 1
-          puts "subdomain enum"
+          puts "Starting subdomain enum job"
           puts tasks
 
           # Run domain enumeration
@@ -129,6 +139,8 @@ loop do
               puts "Finishing scan, no banner enumeration"
               finalize(job_results, job_id)
             end
+          else
+            finalize(job_results, job_id)
           end
 
           # PORT SCAN
@@ -166,14 +178,24 @@ loop do
           finalize(job_results, job_id)
         elsif task_type == 6
           puts "Job Type => Domain Takeover"
-          domain_file_path = get_domains()
-          results = scan.domain_takeover(domain_file_path)
-          job_results[:domains] = results
-          finalize(job_results, job_id)
+          domains = Api.get_domains_query(job_target)
+          hosts = []
+          
+          File.delete('takeovers.txt') rescue puts "File does not exist"
+          
+          open('takeovers.txt', 'a') do |f|
+            domains.each do |domain|
+              f.puts "#{domain['dns_name']},#{domain['dns_record']}"
+            end
+          end
+          
+          scan.takeovers(job_target)
+          update_job(job_id, "done")
         end
       end
     end
   end
 
   sleep 5
+  puts "Ready for work, but no jobs are available"
 end

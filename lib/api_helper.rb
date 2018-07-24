@@ -59,6 +59,23 @@ module Api
     puts exception.backtrace
   end
 
+  def Api.get_domains_query(query)
+
+    conn = Faraday.new $API_HOST
+    resp = conn.get do |req|
+      req.url "/api/search/domains?q=#{query}"
+      req.headers['X-Monocle-Key'] = $API_KEY
+    end
+    
+    data = JSON.parse(resp.body)
+
+    return data
+
+  rescue => exception
+    puts exception.backtrace
+  end
+
+
 end
 
 if opts[:debug]

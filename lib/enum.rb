@@ -2,7 +2,7 @@ require_relative('./portscan')
 require_relative('./brute')
 require_relative('./banner')
 require_relative('./http')
-require_relative('./crt')
+require_relative('./passive')
 require_relative('./resolver')
 require_relative("../tools/aquatone/lib/aquatone")
 require 'resolv'
@@ -127,35 +127,42 @@ class Enumeration
     end
   end
 
-  def enumerate_domain(domain, recursive)
-    if recursive
+  def enumerate_domain(domain, recursive=false)
+    unless recursive
       # When doing a recursive scan, we only do bruteforce
-      crt_results = []
-    else
-      #crt_results = CRT.search(domain)
-      crt_results = [] # Testing
+      aquatone_results = Passive.aquatone_discover(domain)
+      
     end
-
+    
     discovered_records = []
-    if crt_results
-      new_domains = DNSResolver.new.res_async(crt_results)
-      discovered_records.concat(new_domains)
-    end
+    discovered_records.concat(aquatone_results)
+    
+    # discovered_records = []
+    # if crt_results
+    #   new_domains = DNSResolver.new.res_async(crt_results)
+    #   discovered_records.concat(new_domains)
+    # end
 
-    if discovered_records.nil?
-      discovered_records = []
-    end
+    # if discovered_records.nil?
+    #   discovered_records = []
+    # end
+
     if recursive
       # use a small wordlist when doing recursive enumeration
       brute_discoveries = Brute.run(domain, 'monocle-tiny')
     else
-      brute_discoveries = Brute.run(domain, 'monocle')
+      brute_discoveries = Brute.run(domain, 'monocle-tiny')
     end
 
 
     unless brute_discoveries.nil?
       discovered_records.concat(brute_discoveries)
     end
+    
+    # Remove any records that didn't resolve properly
+
+    discovered_records = discovered_records.delete_if {|entry| !Resolv::IPv4::Regex.match?(entry[:record])}
+    #discovered_records.uniq! {|hash| hash.values_at(:dns_name)}
     return discovered_records
   end
 

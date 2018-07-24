@@ -1,6 +1,6 @@
 require 'work_queue'
 require 'open3'
-
+require 'os'
 
 class Brute
     def self.lookup_ip(ip)
@@ -19,19 +19,21 @@ class Brute
         start = Time.now
        
         # # Split into an array so that we can safely pass them to a system call
-        brute_args = "-d #{domain} --wordlist wordlists/#{word}.txt --threads 50 -o output/#{domain}-brute.txt"
+        brute_args = "-i -m dns -u #{domain} -w wordlists/#{word}.txt -t 50 -o output/#{domain}-brute.txt"
+        
         brute_safe_args = brute_args.split(" ")
          
-        Open3.popen2e('./tools/aquatone/exe/aquatone-discover', *brute_safe_args) do |stdin, stdout_stderr, wait_thread|
-            Thread.new do
-                stdout_stderr.each {|l| 
-                puts l
-             }
-            end
-          
-          
-            wait_thread.value
+        if OS.linux?
+            brute_tool = './tools/gobuster-linux'
+        else
+            brute_tool = './tools/gobuster'
+        end
+
+        Open3.popen3(brute_tool, *brute_safe_args) do |stdin, stdout, stderr, wait_thr|
+          while line = stdout.gets
+            puts line
           end
+        end        
 
         discoveries = []
         
@@ -39,9 +41,13 @@ class Brute
             File.open('output/'+domain+'-brute.txt', 'r') do |results|
 
                 results.each_line do |line|
-                    temp = line.strip.split(",")
-                    dns_discovery = temp[0].downcase
-                    ip = temp[0].downcase
+                    dns_discovery = line.strip.split(" ")[1].downcase
+                    ip = line.strip.split(" ")[2].downcase
+                    ip = ip[1..-2] # strip '[' and ']'
+
+                    # temp = line.strip.split(",")
+                    # dns_discovery = temp[0].downcase
+                    # ip = temp[0].downcase
                     discoveries.push({domain: dns_discovery, record: ip})
                 end
                 begin
