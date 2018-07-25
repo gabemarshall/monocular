@@ -9,8 +9,9 @@ opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
   o.string '-k', '--key', 'API Key'
 end
-$API_KEY = opts[:key]
-$API_HOST = opts[:host]
+
+$API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']
+$API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
 
 def check_jobs
   begin
@@ -86,7 +87,7 @@ loop do
       msg = take_job(job_id)
       unless msg == "ERROR"
 
-        # SUBDOMAIN ENUMERATION
+        ########## SUBDOMAIN ENUMERATION #############
         scan = Enumeration.new()
         job_results = {}
 
@@ -96,18 +97,15 @@ loop do
 
           # Run domain enumeration
           discovery_array_hash = scan.enumerate_domain(job_target, false)
-          recursive_hash = discovery_array_hash
+          # => [{:domain=>"confluence.eversec.rocks", :record=>"54.231.49.90"}]
 
-          job_results[:domains] = recursive_hash.uniq {|hash| hash.values_at(:domain)}
+          job_results[:domains] = discovery_array_hash
           discovered_ips = []
-          discovered_domains = []
 
           discovery_array_hash.each do |disc|
             discovered_ips.push(disc[:record])
-            discovered_domains.push(disc[:domain])
           end
 
-          # If port scan enrichment is enabled, begin nmap scan
           scan_results = []
           if tasks.include?("2")
             puts "Portscan requested"
@@ -123,12 +121,12 @@ loop do
 
           if scan_results.length > 0
             if tasks.include?("3")
-              discovery_array_hash = []
 
               puts "Grabbing banners for open ports"
               services = scan.enumerate_banners(scan_results)
 
               puts "Enumerating any HTTP services"
+              # [{:ip=>"192.168.0.100", :port=>80, :banner=>"HTTP/1.1 400 Bad Request", :service_type=>"http"}]
               services_final = scan.enumerate_http(services, discovery_array_hash)
 
               puts "Finishing scan, banner enumeration was performed"
@@ -143,33 +141,81 @@ loop do
             finalize(job_results, job_id)
           end
 
-          # PORT SCAN
+        ########## PORT SCAN #############
 
         elsif task_type == 2
           puts "Job Type => Port Scan"
-          masscan_result_array = scan.enumerate_ip(job_target, args)
+          target_is_json = JSON.parse(job_target) rescue nil
 
-          if masscan_result_array.nil?
-            masscan_result_array = []
-          end
+          if target_is_json
+            discovery_array_hash = target_is_json.map! {|entry| {domain:entry["domain"], record:entry["record"]} }
 
-          puts "Port scan completed, #{masscan_result_array.length} ports were discovered\n\n#{masscan_result_array.to_s}"
-          if masscan_result_array.length > 0
-            if tasks.include?("3")
-              puts "Grabbing banners for open ports"
-              services = scan.enumerate_banners(masscan_result_array)
+            job_results[:domains] = discovery_array_hash
+            discovered_ips = []
 
-              puts "Enumerating any HTTP services"
+            discovery_array_hash.each do |disc|
+              discovered_ips.push(disc[:record])
+            end
 
-              services_final = scan.enumerate_http(services)
+            # If port scan enrichment is enabled, begin nmap scan
+            scan_results = []
 
-              job_results[:services] = services_final
-              finalize(job_results, job_id)
+            if discovered_ips.length > 0
+              unique_ips = discovered_ips.sort.uniq
+              puts "Discovered #{unique_ips.length} ips that need to be scanned, proceeding with portscan"
+
+              enum_ip_results = scan.enumerate_ip_list(unique_ips, args)
+              scan_results.concat(enum_ip_results)
+            end
+
+
+            if scan_results.length > 0
+              if tasks.include?("3")
+
+                puts "Grabbing banners for open ports"
+                services = scan.enumerate_banners(scan_results)
+
+                puts "Enumerating any HTTP services"
+                services_final = scan.enumerate_http(services, discovery_array_hash)
+
+                puts "Finishing scan, banner enumeration was performed"
+                job_results[:services] = services_final
+                finalize(job_results, job_id)
+              else
+                job_results[:services] = scan_results
+                puts "Finishing scan, no banner enumeration"
+                finalize(job_results, job_id)
+              end
             else
-              job_results[:services] = masscan_result_array
-              finalize(masscan_result_array, job_id)
+              finalize(job_results, job_id)
+            end
+          else
+
+            masscan_result_array = scan.enumerate_ip(job_target, args)
+
+            if masscan_result_array.nil?
+              masscan_result_array = []
+            end
+
+            puts "Port scan completed, #{masscan_result_array.length} ports were discovered\n\n#{masscan_result_array.to_s}"
+            if masscan_result_array.length > 0
+              if tasks.include?("3")
+                puts "Grabbing banners for open ports"
+                services = scan.enumerate_banners(masscan_result_array)
+
+                puts "Enumerating any HTTP services"
+
+                services_final = scan.enumerate_http(services)
+
+                job_results[:services] = services_final
+                finalize(job_results, job_id)
+              else
+                job_results[:services] = masscan_result_array
+                finalize(masscan_result_array, job_id)
+              end
             end
           end
+
         elsif task_type == 5
           puts "Job Type => Update Services"
           services = get_services(job_target)

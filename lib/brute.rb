@@ -19,16 +19,17 @@ class Brute
         start = Time.now
        
         # # Split into an array so that we can safely pass them to a system call
-        brute_args = "-i -m dns -u #{domain} -w wordlists/#{word}.txt -t 50 -o output/#{domain}-brute.txt"
+        #brute_args = "-i -m dns -u #{domain} -w wordlists/#{word}.txt -t 50 -o output/#{domain}-brute.txt"
+        brute_args = "--domain=#{domain} --wordlist=wordlists/#{word}.txt -o output/#{domain}-brute.txt"
         
         brute_safe_args = brute_args.split(" ")
          
-        if OS.linux?
-            brute_tool = './tools/gobuster-linux'
-        else
-            brute_tool = './tools/gobuster'
-        end
-
+        # if OS.linux?
+        #     brute_tool = './tools/gobuster-linux'
+        # else
+        #     brute_tool = './tools/gobuster'
+        # end
+        brute_tool = './tools/monocle-brute/monocle-brute'
         Open3.popen3(brute_tool, *brute_safe_args) do |stdin, stdout, stderr, wait_thr|
           while line = stdout.gets
             puts line

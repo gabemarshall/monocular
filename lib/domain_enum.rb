@@ -1,6 +1,4 @@
-require_relative('./crt')
 require_relative('./resolver')
-require_relative('./gobuster')
 
 module DomainEnum
   	def self.run(domain, recursive=false)

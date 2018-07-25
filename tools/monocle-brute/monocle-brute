@@ -1,0 +1,81 @@
+#!/usr/bin/env node
+const dns = require("dns-then");
+const Promise = require("bluebird");
+const fs = require("fs");
+const argv = require("yargs").argv;
+
+var resolvers = ["8.8.8.8", "8.8.4.4", "1.1.1.1"];
+
+async function getNameServers() {
+  dns
+    .resolveNs(argv.domain)
+    .then(function(address) {
+      if (Array.isArray(address)) {
+        console.log(address.length + " additional nameservers found");
+        console.log();
+        for (i = 0; i < address.length; i++) {
+          let tempNs = address[i].toString().trim();
+
+          dns.lookup(tempNs).then(function(rec) {
+            resolvers.push(rec);
+          });
+        }
+      }
+    })
+    .then(function() {});
+}
+
+let wordlist = argv.wordlist;
+if (!wordlist) {
+  wordlist = "lib/tiny.txt";
+}
+let words = fs
+  .readFileSync(wordlist, "utf-8")
+  .trim()
+  .split("\n");
+let domain = argv.domain;
+let takeover = argv.takeover;
+
+async function setNameServers() {
+  return dns.setServers(resolvers);
+}
+
+(async () => {
+  console.log("Enumerating " + argv.domain + "\n");
+  if (argv.o) {
+    console.log("Output will be saved in " + argv.o);
+  }
+
+  await getNameServers();
+  await setNameServers();
+
+  setTimeout(function() {
+    dns.setServers(resolvers);
+    let wcCheck = "tazooflwoa1";
+    words.unshift(wcCheck);
+    return Promise.map(
+      words,
+      function(sub) {
+        let subdomain = sub + "." + domain;
+
+        dns.lookup(subdomain).then(function(address) {
+          if (address) {
+            if (subdomain.includes(wcCheck)) {
+              console.log("Wildcard detected, quitting");
+              process.exit(0);
+            }
+            out = "Found: " + subdomain + " [" + address + "]";
+            console.log(out);
+            if (argv.o) {
+              out += "\n";
+              fs.appendFileSync(argv.o, out);
+            }
+          }
+        });
+      },
+      {
+        concurrency: 5000
+      }
+    ).then(function() {});
+  }, 500);
+})();

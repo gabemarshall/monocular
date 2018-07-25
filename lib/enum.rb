@@ -151,7 +151,7 @@ class Enumeration
       # use a small wordlist when doing recursive enumeration
       brute_discoveries = Brute.run(domain, 'monocle-tiny')
     else
-      brute_discoveries = Brute.run(domain, 'monocle-tiny')
+      brute_discoveries = Brute.run(domain, 'monocle')
     end
 
 
@@ -196,7 +196,7 @@ class Enumeration
     puts "########### Enumerating HTTP ############"
     services_enum_http = []
     non_http = []
-    
+
     if domains.length > 0
       services.each do |service|
         value = domains.find { |d| d[:record] == service[:ip]} || nil

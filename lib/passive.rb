@@ -11,8 +11,8 @@ class Passive
         options = {
           :fallback_nameservers => %w(8.8.8.8 8.8.4.4),
           :domain => domain,
-          :only_collectors => 'publicwww',
-          #:disable_collectors => 'dictionary',
+          #:only_collectors => 'publicwww',
+          :disable_collectors => 'dictionary',
           :output => 'output/'+domain+'-passive.txt',
           :threads => 50
         }
@@ -23,7 +23,7 @@ class Passive
                 results.each_line do |line|
                     temp = line.strip.split(",")
                     dns_discovery = temp[0].downcase
-                    ip = temp[0].downcase
+                    ip = temp[1].downcase
                     
                     passive_discoveries.push({domain: dns_discovery, record: ip})
                 end
