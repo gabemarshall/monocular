@@ -54,7 +54,18 @@ def finalize(data, job_id)
     req.url '/api/jobs/finalize'
     req.headers['Content-Type'] = 'application/json'
     req.headers['X-Monocle-Key'] = $API_KEY
-    req.body = data.to_json
+    begin
+      req.body = data.to_json
+    rescue => exception
+      
+      File.open('error_data.log', 'a') { |file| 
+        file.write(data)
+      }
+      File.open('error_exception.log', 'a') { |file| 
+        file.write(exception)
+        file.write(exception.backtrace)
+      }
+    end
   end
 
   puts "Bye!"

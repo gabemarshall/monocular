@@ -34,7 +34,6 @@ let words = fs
   .trim()
   .split("\n");
 let domain = argv.domain;
-let takeover = argv.takeover;
 
 async function setNameServers() {
   return dns.setServers(resolvers);
@@ -57,8 +56,10 @@ async function setNameServers() {
       words,
       function(sub) {
         let subdomain = sub + "." + domain;
-
-        dns.lookup(subdomain).then(function(address) {
+        // default to A record
+        let resolv = dns.lookup;
+        
+        resolv(subdomain).then(function(address) {
           if (address) {
             if (subdomain.includes(wcCheck)) {
               console.log("Wildcard detected, quitting");
@@ -68,7 +69,12 @@ async function setNameServers() {
             console.log(out);
             if (argv.o) {
               out += "\n";
-              fs.appendFileSync(argv.o, out);
+              if (argv.csv){
+                fs.appendFileSync(argv.o, subdomain+","+address+"\n")
+              } else {
+                fs.appendFileSync(argv.o, out);
+              }
+              
             }
           }
         });
