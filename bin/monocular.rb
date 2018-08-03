@@ -4,6 +4,7 @@ require 'slop'
 require_relative('../lib/enum')
 require_relative('../lib/api_helper')
 require_relative('../lib/chores')
+require_relative('../lib/utils')
 
 opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
@@ -54,18 +55,12 @@ def finalize(data, job_id)
     req.url '/api/jobs/finalize'
     req.headers['Content-Type'] = 'application/json'
     req.headers['X-Monocle-Key'] = $API_KEY
+    
     begin
-      req.body = data.to_json
-    rescue => exception
-      
-      File.open('error_data.log', 'a') { |file| 
-        file.write(data)
-      }
-      File.open('error_exception.log', 'a') { |file| 
-        file.write(exception)
-        file.write(exception.backtrace)
-      }
-    end
+        req.body = data.to_json
+    rescue => GeneratorError
+        req.body = data.to_safe_json
+    end    
   end
 
   puts "Bye!"
