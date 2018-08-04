@@ -79,7 +79,7 @@ class Banner
         type = "http"
       end
     end
-    banner = banner.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+    banner = banner.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
     banner_data = {:banner => banner, :type => type}
 
     return banner_data
