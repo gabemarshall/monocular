@@ -171,7 +171,6 @@ class Enumeration
     options = {
       :fallback_nameservers => %w(8.8.8.8 8.8.4.4),
       :file => 'takeovers.txt',
-      :domain => 'all.com',
       :output => 'takeovers-log.txt',
       :threads => 25
     }

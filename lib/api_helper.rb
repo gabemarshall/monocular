@@ -18,7 +18,7 @@ module Api
 
     conn = Faraday.new host
     resp = conn.get do |req|
-      req.url '/api/search?q='+query
+      req.url "#{MonocleRoutes::SEARCH}?q=#{query}"
       req.headers['X-Monocle-Key'] = key
     end
     
@@ -34,7 +34,7 @@ module Api
     conn = Faraday.new $API_HOST
     
     resp = conn.post do |req|
-      req.url '/api/issue/create'
+      req.url MonocleRoutes::CREATE_ISSUE
       req.headers['X-Monocle-Key'] = $API_KEY
       req.body = 'severity=critical&rule='+domain+'&name='+msg
     end
@@ -47,13 +47,11 @@ module Api
 
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url '/api/domain/all'
+      req.url MonocleRoutes::ALL_DOMAINS
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
@@ -63,7 +61,7 @@ module Api
 
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url "/api/search/domains?q=#{query}"
+      req.url "#{MonocleRoutes::SEARCH_DOMAINS}?q=#{query}"
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     

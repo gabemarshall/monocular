@@ -18,7 +18,7 @@ def check_jobs
   begin
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url '/api/jobs/pending'
+      req.url MonocleRoutes::JOBS_PENDING
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     data = JSON.parse(resp.body)
@@ -40,7 +40,7 @@ end
 def take_job(id)
   conn = Faraday.new $API_HOST
   resp = conn.post do |req|
-    req.url '/api/jobs/accept'
+    req.url MonocleRoutes::ACCEPT_JOBS
     req.headers['X-Monocle-Key'] = $API_KEY
     req.body = 'id=' + id.to_s
   end
@@ -52,15 +52,11 @@ def finalize(data, job_id)
 
   conn = Faraday.new $API_HOST
   resp = conn.post do |req|
-    req.url '/api/jobs/finalize'
+    req.url MonocleRoutes::FINALIZE_JOBS
     req.headers['Content-Type'] = 'application/json'
     req.headers['X-Monocle-Key'] = $API_KEY
     
-    begin
-        req.body = data.to_json
-    rescue => GeneratorError
-        req.body = data.to_safe_json
-    end    
+    req.body = data.to_safe_json
   end
 
   puts "Bye!"
@@ -69,7 +65,7 @@ end
 def update_job(job_id, status)
   conn = Faraday.new $API_HOST
   resp = conn.post do |req|
-    req.url '/api/job/update'
+    req.url MonocleRoutes::UPDATE_JOB
     req.headers['X-Monocle-Key'] = $API_KEY
     req.body = 'id='+job_id.to_s+'&status='+status
   end

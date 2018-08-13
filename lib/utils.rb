@@ -1,13 +1,17 @@
 require 'json'
 
+def clean(data)
+  return data.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+end
+
 class Hash
-  def clean
+  def clean_self
     Hash[
       self.collect do |k, v|
         if (v.respond_to?(:to_utf8))
           [ k, v.to_utf8 ]
         elsif (v.respond_to?(:encoding))
-          [ k, v.dup.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?') ]
+          [ k, clean(v.dup) ]
         else
           [ k, v ]
         end
@@ -16,7 +20,15 @@ class Hash
   end
   
   def to_safe_json
-    return self.clean.to_json
+    safe = ''
+
+    begin
+      safe = self.to_json
+    rescue => GeneratorError
+      safe = self.clean_self.to_json
+    end
+
+    return safe
   end
 
 end
