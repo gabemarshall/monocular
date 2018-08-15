@@ -12,19 +12,15 @@ opts = Slop.parse do |o|
 end
 
 
-
 module Api
-  def Api.services_from_search(host, key, query)
-
-    conn = Faraday.new host
+  def Api.services_from_search(query)
+    conn = Faraday.new $API_HOST
     resp = conn.get do |req|
       req.url "#{MonocleRoutes::SEARCH}?q=#{query}"
-      req.headers['X-Monocle-Key'] = key
+      req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
@@ -42,9 +38,7 @@ module Api
     return resp.body
   end
 
-
   def Api.get_all_domains()
-
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
       req.url MonocleRoutes::ALL_DOMAINS
@@ -58,30 +52,27 @@ module Api
   end
 
   def Api.get_domains_query(query)
-
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
       req.url "#{MonocleRoutes::SEARCH_DOMAINS}?q=#{query}"
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
   end
-
-
 end
 
 if opts[:debug]
-  services = Api.services_from_search(opts[:host],opts[:key], opts[:query])
+  $API_HOST = opts[:host]
+  $API_KEY = opts[:key]
+
+  services = Api.services_from_search(opts[:query])
   scan = Enumeration.new()
 
   scan.update_http(services)
-
 
   #services.each do |service|
     #ap service["type"]
