@@ -55,7 +55,7 @@ def finalize(data, job_id)
     req.url MonocleRoutes::FINALIZE_JOBS
     req.headers['Content-Type'] = 'application/json'
     req.headers['X-Monocle-Key'] = $API_KEY
-    
+
     req.body = data.to_safe_json
   end
 
@@ -72,10 +72,15 @@ def update_job(job_id, status)
 end
 
 loop do
-  job = check_jobs
+  sleep 5
 
-  this_job = job['schedule'] rescue nil
-  return if this_job.nil?
+  job = check_jobs ||= {}
+  if job.has_key? 'schedule'
+    this_job = job['schedule']
+  else
+      next
+  end
+
 
   puts "Taking available job"
   job_id = job['id']
@@ -233,6 +238,4 @@ loop do
     update_job(job_id, "done")
   end
 
-  sleep 5
-  puts "Ready for work, but no jobs are available"
 end
