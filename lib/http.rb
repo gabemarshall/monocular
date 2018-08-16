@@ -6,6 +6,8 @@ require 'benchmark'
 require 'socket'
 require 'http'
 require 'openssl'
+require 'resolv'
+require 'pry'
 
 class HttpResponse
   def self.analyze(service)
@@ -48,123 +50,134 @@ class JobCounter
 end
 
 class HttpGrabber
-  include SuckerPunch::Job
-  workers 4
-  SuckerPunch.shutdown_timeout = 600000
-  SuckerPunch.exception_handler = -> (ex, klass, args) { puts ex }
 
-  def self.ssl_props(hostname, port)
-    tcp_client = TCPSocket.new(hostname, port)
-    ssl_client = OpenSSL::SSL::SSLSocket.new(tcp_client)
-    ssl_client.connect
-    cert = OpenSSL::X509::Certificate.new(ssl_client.peer_cert)
-    ssl_client.sysclose
-    tcp_client.close
+    def self.run(services=[], opts)
+        Typhoeus::Config.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36"
 
-    certprops = OpenSSL::X509::Name.new(cert.issuer).to_a
-    issuer = certprops.select { |name, data, type| name == "O" }.first[1]
+        hydra = Typhoeus::Hydra.new(max_concurrency: 15)
+        monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
 
-    #puts certprops.inspect
+        $resps = []
+        
+        services.each do |service|
 
-    name = OpenSSL::X509::Name.parse cert.subject.to_s
-    cn = name.to_a.find { |name, _, _| name == 'CN' }[1] rescue nil
-    o = name.to_a.find { |name, _, _| name == 'O' }[1] rescue nil
 
-    results = {
-      :valid_on => cert.not_before,
-      :valid_until => cert.not_after,
-      :issuer => issuer,
-      :valid => (ssl_client.verify_result == 0),
-      :org => o,
-      :cn => cn,
-    }
+            begin
 
-    return results
-  end
+                hostname_exists = true
+                hostname = service[:ip]
+                if Resolv::IPv4::Regex.match?(service[:ip])
+                  hostname_exists = false
+                  hostname = nil
+                end
+                uri = service[:ip]
 
-  def determine_redirect(location)
-    location = location.strip
-    protocol = location.split(':')[0]
-    host = location.split(':')[1].gsub('//', '').gsub('/', '')
-    port = location.split(':')[2].gsub('//', '').gsub('/', '') rescue nil
+                output = {}
 
-    data = {proto: protocol, hostname: host, port: port}
-    return data
-  end
+                if service[:port].to_s == "443" || service[:port].to_s == "8443" || opts[:ssl] || opts[:tls]
+                    puts "Queuing https://#{uri}:#{service[:port]}/"
+                    begin
+                      if !hostname_exists
+                        ssl_props = HttpGrabber.ssl_props(service[:ip], service[:port])
+                        if ssl_props.has_key? 'cn'
+                          uri = ssl_props[:cn]
+                          hostname_exists = true
+                        end
+                      end                    
+                    rescue => exception
 
-  def perform(host, port, proto, sucker)
-    $depth_max = 4
-    $depth = 0
-    def self.request(host, port, proto)
-      ctx = OpenSSL::SSL::SSLContext.new
-      ctx.verify_mode = OpenSSL::SSL::VERIFY_NONE
-      timeout = {:write => 3, :connect => 3, :read => 5}
-      headers = {:referer => "https://frg12.monocleapp.com", :user_agent => "Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/FRG22D) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"}
+                    end
+                    
+                    request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
+                    request.on_complete do |response|
+                        unless response.code == 0
+                            puts "Request to #{hostname} has completed successfully"
+                        end
+                        headers = response.response_headers rescue ""
+                        headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+                        banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
+                        if !Resolv::IPv4::Regex.match?(service[:ip])
+                            service[:ip] = response.primary_ip
+                        end
+                        unless banner.length == 0
+                          $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'https'})
+                        end
+                    end
 
-      ssl_props = nil
-      if proto == "https"
-        begin
-          if port.class == String
-            uri = host
-          else
-            uri = "https://#{host}:#{port.to_s}/"
-          end
+                else
+                    puts "Queuing http://#{uri}:#{service[:port]}/"
 
-          response = HTTP.timeout(timeout).headers(headers).get(uri, ssl_context: ctx)
-        rescue => exception
-          warn("Exception thrown during self.request for #{port} on #{host}")
+                    request = Typhoeus::Request.new("http://#{uri}:#{service[:port]}/", monocleConfig)
+                    request.on_complete do |response|
+                        unless response.code == 0
+                            puts "Request to #{hostname} has completed successfully"
+                        end
+                        headers = response.response_headers rescue ""
+                        headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+                        banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
+                        if !Resolv::IPv4::Regex.match?(service[:ip])
+                            service[:ip] = response.primary_ip
+                        end
+                        unless banner.length == 0
+                          if headers.length > 0
+                            $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'http'})
+                          else
+                            $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner})
+                          end
+                        end
+                    end
 
-          err(exception)
+                end
+
+
+                hydra.queue(request)
+
+
+
+            rescue => exception
+
+                puts ""
+            end
         end
-        if port.class == String
-          original_host = host.strip.split(':')[1].gsub('//', '').gsub('/', '')
-          original_port = host.strip.split(':')[2].gsub('//', '').gsub('/', '') rescue 443
-          ssl_props = HttpGrabber.ssl_props(original_host, original_port)
-        else
-          ssl_props = HttpGrabber.ssl_props(host, port)
-        end
-      else
-        begin
-          if port.class == String
-            uri = host
-          else
-            uri = "https://#{host}:#{port.to_s}/"
-          end
-          uri = "http://#{host}:#{port.to_s}/"
+        hydra.run
+        return $resps
+    end
 
-          response = HTTP.timeout(timeout).headers(headers).get(uri)
-        rescue => exception
-          puts exception.backtrace
-          puts exception
-          #return {banner: nil, status_code: nil, uri: nil}
-        end
+      def self.ssl_props(hostname, port)
+        tcp_client = TCPSocket.new(hostname, port)
+        ssl_client = OpenSSL::SSL::SSLSocket.new(tcp_client)
+        ssl_client.connect
+        cert = OpenSSL::X509::Certificate.new(ssl_client.peer_cert)
+        ssl_client.sysclose
+        tcp_client.close
+
+        certprops = OpenSSL::X509::Name.new(cert.issuer).to_a
+        issuer = certprops.select { |name, data, type| name == "O" }.first[1]
+
+        name = OpenSSL::X509::Name.parse cert.subject.to_s
+        cn = name.to_a.find { |name, _, _| name == 'CN' }[1] rescue nil
+        o = name.to_a.find { |name, _, _| name == 'O' }[1] rescue nil
+
+        results = {
+          :valid_on => cert.not_before,
+          :valid_until => cert.not_after,
+          :issuer => issuer,
+          :valid => (ssl_client.verify_result == 0),
+          :org => o,
+          :cn => cn,
+        }
+
+        return results
       end
-      return {http: response, ssl: ssl_props}
-    end
-    http_obj = self.request(host, port, proto)
 
-    while http_obj[:http].headers['Location'] && $depth < $depth_max
-      loc = determine_redirect(http_obj[:http].headers['Location'])
-      http_obj = self.request(http_obj[:http].headers['Location'], "location", loc[:proto])
-      $depth += 1
-    end
+      def determine_redirect(location)
+        location = location.strip
+        protocol = location.split(':')[0]
+        host = location.split(':')[1].gsub('//', '').gsub('/', '')
+        port = location.split(':')[2].gsub('//', '').gsub('/', '') rescue nil
 
-    header_cleaned = ""
-    begin
-      headers = nil_chain { http_obj[:http].headers }
-      headers_cleaned = "HTTP/1.1 #{http_obj[:http].code}\n"
-      headers.each do |key, array|
-        headers_cleaned += "#{key} : #{array}\n"
+        data = {proto: protocol, hostname: host, port: port}
+        return data
+
       end
-    rescue
-      puts "Err"
-    end
-    c = sucker.subone
-    sucker.add({banner: http_obj[:http].body.to_s, status_code: http_obj[:http].code, uri: http_obj[:http].uri.to_s, headers: headers_cleaned, ssl: http_obj[:ssl]})
-    puts "#{c} jobs left"
-    if c == 0
-      puts "Job completed"
-      puts sucker.services
-    end
-  end
 end
