@@ -54,9 +54,12 @@ class HttpGrabber
     def self.run(services=[], opts)
         Typhoeus::Config.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36"
 
-        hydra = Typhoeus::Hydra.new(max_concurrency: 15)
-        monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
-
+        hydra = Typhoeus::Hydra.new(max_concurrency: 25)
+        if opts[:proxy]
+          monocleConfig = {headers: {"X-Host" => "nEkTMLFV8ZC0", "X-Forwarded-Host" => "nEkTMLFV8ZC1", "X-Forwarded-Server"=>"nEkTMLFV8ZC2", "X-Original-URL"=>"nEkTMLFV8ZC3"},followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5, proxy: opts[:proxy]}
+        else
+          monocleConfig = {headers: {"X-Host" => "nEkTMLFV8ZC0", "X-Forwarded-Host" => "nEkTMLFV8ZC1", "X-Forwarded-Server"=>"nEkTMLFV8ZC2", "X-Original-URL"=>"nEkTMLFV8ZC3"},followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
+        end
         $resps = []
         
         services.each do |service|

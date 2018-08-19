@@ -5,6 +5,8 @@ require_relative('../lib/enum')
 require_relative('../lib/api_helper')
 require_relative('../lib/chores')
 require_relative('../lib/utils')
+require_relative('../config/monocle_routes')
+require 'pry'
 
 opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
@@ -16,7 +18,9 @@ $API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
 
 def check_jobs
   begin
+    puts "Checking for Jobs"
     conn = Faraday.new $API_HOST
+
     resp = conn.get do |req|
       req.url MonocleRoutes::JOBS_PENDING
       req.headers['X-Monocle-Key'] = $API_KEY
@@ -74,11 +78,12 @@ end
 loop do
   sleep 5
 
-  job = check_jobs ||= {}
-  if job.has_key? 'schedule'
-    this_job = job['schedule']
+  job = check_jobs()
+
+  if job.nil?
+    next
   else
-      next
+    this_job = job['schedule']
   end
 
 
@@ -225,16 +230,31 @@ loop do
     finalize(job_results, job_id)
   elsif task_type == 6
     puts "Job Type => Domain Takeover"
-    domains = Api.get_domains_query(target)
+    scan = Enumeration.new
 
-    File.delete('takeovers.txt') rescue puts "File does not exist"
-    open('takeovers.txt', 'a') do |f|
-      domains.each do |domain|
-        f.puts "#{domain['name']},#{domain['a_record']}"
+    domains = Api.get_all_domains().map! {|dom|dom["name"].downcase }.sort.uniq
+    targ = domains.first
+
+    options = {
+      :fallback_nameservers => %w(8.8.8.8 8.8.4.4),
+      :file => 'takeovers.txt',
+      :output => 'takeovers-log.txt',
+      :threads => 25,
+      :domain => targ
+    }
+
+
+    takeover = Aquatone::Commands::Takeover.run(options)
+
+    if takeover.length == 0
+      puts "No vulnerable domains"
+    else
+      takeover.each do |vuln|
+        msg = "Potential #{vuln[1]['service']} takeover on #{vuln[0]} (#{vuln[1]['resource']['value']})"
+        domain = vuln[0]
+        Api.notify_takeover(domain, msg)
       end
     end
-
-    scan.takeovers(target)
     update_job(job_id, "done")
   end
 

@@ -2,16 +2,14 @@ module Aquatone
   module Commands
     class Takeover < Aquatone::Command
       def execute!
-        
-        if !options[:domain] || !options[:file]
-          output("Please specify a domain to assess and a path to a json file to load domains from\n")
-          exit 1
-        end
 
+        domains = Api.get_all_domains().map! {|dom|dom["name"].downcase }.sort.uniq
+
+        @hosts = domains
         @assessment = Aquatone::Assessment.new(options[:domain])
 
         banner("Takeover")
-        prepare_host_dictionary
+        #prepare_host_dictionary
         prepare_detectors
         setup_resolver
         check_hosts
@@ -20,11 +18,6 @@ module Aquatone
 
       private
 
-      def prepare_host_dictionary      
-        hosts = File.readlines(options[:file])
-        @hosts = hosts.map {|line| line.split(',')[0]}
-        output("Loaded #{bold(@hosts.count)} hosts from #{bold(options[:file])}")
-      end
 
       def prepare_detectors
         @detectors = Aquatone::Detector.descendants
@@ -46,7 +39,7 @@ module Aquatone
           output("\n")
         end
         @resolver = Aquatone::Resolver.new(
-          :nameservers          => nameservers,
+          :nameservers          => ['8.8.8.8', '8.8.4.4'],
           :fallback_nameservers => options[:fallback_nameservers]
         )
       end
@@ -59,7 +52,9 @@ module Aquatone
         @start_time         = Time.now.to_i
         output("Checking hosts for domain takeover vulnerabilities...\n\n")
         @hosts.each do |host|
+
           resource = @resolver.resource(host)
+          puts resource.inspect
           next unless valid_resource?(resource)
           pool.schedule do
             output_progress if asked_for_progress?
