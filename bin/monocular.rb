@@ -252,7 +252,7 @@ loop do
       takeover.each do |vuln|
         msg = "Potential #{vuln[1]['service']} takeover on #{vuln[0]} (#{vuln[1]['resource']['value']})"
         domain = vuln[0]
-        Api.notify_takeover(domain, msg)
+        Api.notify_takeover(domain, msg, job_id)
       end
     end
     update_job(job_id, "done")

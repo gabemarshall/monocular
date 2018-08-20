@@ -26,13 +26,13 @@ module Api
     puts exception.backtrace
   end
 
-  def Api.notify_takeover(domain, msg)
+  def Api.notify_takeover(domain, msg, job_id)
     conn = Faraday.new $API_HOST
     
     resp = conn.post do |req|
       req.url MonocleRoutes::CREATE_ISSUE
       req.headers['X-Monocle-Key'] = $API_KEY
-      req.body = 'severity=critical&rule='+domain+'&name='+msg
+      req.body = 'jobid='+job_id.to_s+'&severity=critical&rule='+domain+'&name='+msg
     end
 
     return resp.body
