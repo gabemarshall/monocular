@@ -130,18 +130,24 @@ loop do
 
         enum_ip_results = scan.enumerate_ip_list(unique_ips, args)
         scan_results.concat(enum_ip_results)
+
+        scan_results.each do |scan|
+          matching_domain_record = discovery_array_hash.detect{|host| host[:record] == scan[:ip]}
+          if matching_domain_record
+            scan[:hostname] = matching_domain_record[:domain]
+          end
+        end
+
       end
     end
 
     if scan_results.length > 0
       if tasks.include?("3")
-        puts "Grabbing banners for open ports"
-        services = scan.enumerate_banners(scan_results)
-
+        #services = scan.enumerate_banners(scan_results)
         puts "Enumerating any HTTP services"
         # [{:ip=>"192.168.0.100", :port=>80, :banner=>"HTTP/1.1 400 Bad Request", :service_type=>"http"}]
-        services_final = scan.enumerate_http(services, discovery_array_hash)
-
+        #services_final = scan.enumerate_http(services, discovery_array_hash)
+        services_final = HttpGrabber.run(scan_results)
         puts "Finishing scan, banner enumeration was performed"
         job_results[:services] = services_final
         finalize(job_results, job_id)

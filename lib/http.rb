@@ -51,7 +51,7 @@ end
 
 class HttpGrabber
 
-    def self.run(services=[], opts)
+    def self.run(services=[], opts={})
         Typhoeus::Config.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36"
 
         hydra = Typhoeus::Hydra.new(max_concurrency: 25)
@@ -64,16 +64,19 @@ class HttpGrabber
         
         services.each do |service|
 
-
             begin
-
                 hostname_exists = true
-                hostname = service[:ip]
-                if Resolv::IPv4::Regex.match?(service[:ip])
-                  hostname_exists = false
-                  hostname = nil
+                if service.key? :hostname
+                  hostname = service[:hostname]
+                  uri = service[:hostname]
+                else
+                  hostname = service[:ip]
+                  uri = service[:ip]
+                  if Resolv::IPv4::Regex.match?(service[:ip])
+                    hostname_exists = false
+                    hostname = nil
+                  end
                 end
-                uri = service[:ip]
 
                 output = {}
 
@@ -112,8 +115,10 @@ class HttpGrabber
 
                     request = Typhoeus::Request.new("http://#{uri}:#{service[:port]}/", monocleConfig)
                     request.on_complete do |response|
-                        unless response.code == 0
-                            puts "Request to #{hostname} has completed successfully"
+                        if response.code == 0
+                          puts "Request to #{hostname} error'd out"
+                        else
+                          puts "Request to #{hostname} has completed successfully"
                         end
                         headers = response.response_headers rescue ""
                         headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
