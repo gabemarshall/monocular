@@ -24,7 +24,7 @@ class Hash
 
     begin
       safe = self.to_json
-    rescue => GeneratorError
+    rescue JSON::GeneratorError => exception
       safe = self.clean_self.to_json
     end
 

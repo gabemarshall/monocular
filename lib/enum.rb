@@ -37,7 +37,7 @@ class Enumeration
     domains = Domain.all
 
     domains.each do |domain|
-      Brute.run(domain.dns_name)
+      Brute.run(domain.name)
     end
   end
 
@@ -75,7 +75,7 @@ class Enumeration
       puts "#{ip} will be used for the target"
     else
       puts "Probable domain, lets check to see if it exists"
-      domain_found = Domain.where(:dns_name => ip).first
+      domain_found = Domain.where(:a_record => ip).first
       puts "Masscan prep => Already exists, using #{ip} for the scan"
     end
     begin
@@ -131,21 +131,10 @@ class Enumeration
     unless recursive
       # When doing a recursive scan, we only do bruteforce
       aquatone_results = Passive.aquatone_discover(domain)
-      
     end
     
     discovered_records = []
     discovered_records.concat(aquatone_results)
-    
-    # discovered_records = []
-    # if crt_results
-    #   new_domains = DNSResolver.new.res_async(crt_results)
-    #   discovered_records.concat(new_domains)
-    # end
-
-    # if discovered_records.nil?
-    #   discovered_records = []
-    # end
 
     if recursive
       # use a small wordlist when doing recursive enumeration
@@ -154,20 +143,16 @@ class Enumeration
       brute_discoveries = Brute.run(domain, 'monocle')
     end
 
-
     unless brute_discoveries.nil?
       discovered_records.concat(brute_discoveries)
     end
     
     # Remove any records that didn't resolve properly
-
     discovered_records = discovered_records.delete_if {|entry| !Resolv::IPv4::Regex.match?(entry[:record])}
-    #discovered_records.uniq! {|hash| hash.values_at(:dns_name)}
     return discovered_records
   end
 
   def takeovers(domains)
-  
     options = {
       :fallback_nameservers => %w(8.8.8.8 8.8.4.4),
       :file => 'takeovers.txt',
@@ -175,9 +160,7 @@ class Enumeration
       :threads => 25
     }
 
-
     takeover = Aquatone::Commands::Takeover.run(options)
-    
     if takeover.length == 0
       puts "No vulnerable domains"
     else
@@ -187,42 +170,29 @@ class Enumeration
         Api.notify_takeover(domain, msg)
       end
     end
-
   end
 
   def enumerate_http(services, domains = [])
-
     puts "########### Enumerating HTTP ############"
     services_enum_http = []
-    non_http = []
 
     if domains.length > 0
       services.each do |service|
-        value = domains.find { |d| d[:record] == service[:ip]} || nil
-        services_enum_http.push({ip: service[:ip], hostname: value[:domain], port: service[:port], service_type: 'http', banner: service[:banner]})
+        value = domains.find {|d| d[:record] == service[:ip]} || nil
+        services_enum_http.push({
+            ip: service[:ip],
+            hostname: value[:domain],
+            port: service[:port],
+            service_type: 'http',
+            banner: service[:banner]})
       end
-      # domains.each do |domain|
-
-      #   value = services.find { |h| h[:ip] == domain[:record] } || nil
-
-      #   unless value.nil?
-      #     if value[:port]
-      #       puts "Adding check with domain of #{domain[:domain]}"
-      #       services.push({ip: domain[:record], hostname: domain[:domain], port: value[:port], service_type: 'http', banner: 'Unknown'})
-      #     end
-      #   end
-      # end      
     else
       services_enum_http = services
     end
-    
-
     services.uniq! {|hash| hash.values_at(:hostname, :ip, :port)}
     
     Typhoeus::Config.user_agent = "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/MonocleApp) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
-
     hydra = Typhoeus::Hydra.new(max_concurrency: 15)
-    #monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5, proxy: 'http://127.0.0.1:8080'}
     monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
 
     # save a copy of the nmap results for use on line...
@@ -230,8 +200,6 @@ class Enumeration
     $nmap_services = services
     
     services_enum_http.each do |service|
-    
-
       begin
         if service[:banner]
           if service[:service_type].include?('http')
@@ -242,7 +210,6 @@ class Enumeration
               uri = service[:ip]
               puts "Scheduling HTTP enumeration for #{uri} "
             end
-            output = {}
 
             if service[:port].to_s == "443" || service[:port].to_s == "8443"
               puts "Port is #{service[:port]}"
@@ -284,28 +251,18 @@ class Enumeration
     end
     hydra.run
 
-    
     nmap_values = $nmap_services.delete_if {|service| service[:service_type].include?('http') }
     $resps = $resps+nmap_values
     
     $resps = $resps.sort_by{|a|a['description'].length rescue 0}.uniq{|h| h.values_at(:ip, :port, :hostname)}
-    #$resps.uniq! {|hash| hash.values_at(:banner)}
 
     return $resps
   end
 
-
-
   def update_http(services, proxy=nil)
-
     puts "########### Updating HTTP Services ############"
-    services_enum_http = []
-    non_http = []
-
-    http_services = []
 
     Typhoeus::Config.user_agent = "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/MonocleApp) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
-
     hydra = Typhoeus::Hydra.new(max_concurrency: 5)
 
     if proxy.nil?
@@ -325,11 +282,9 @@ class Enumeration
       else
         url = service["uri"]
       end
-
       puts url
 
       request = Typhoeus::Request.new(url, monocleConfig)
-
       request.on_complete do |response|
         if response.code == 0
           puts "[!] Timeout for #{response.effective_url}"

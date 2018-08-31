@@ -1,0 +1,45 @@
+#!/usr/bin/env ruby
+require 'faraday'
+require 'json'
+require 'slop'
+require_relative('../lib/enum')
+require_relative('../lib/api_helper')
+require_relative('../lib/chores')
+require_relative('../lib/utils')
+require_relative('../config/monocle_routes')
+
+opts = Slop.parse do |o|
+	o.string '-h', '--host', 'Monocle API Host'
+	o.string '-k', '--key', 'API Key'
+end
+
+$API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']
+$API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
+
+
+scan = Enumeration.new
+
+
+domains = Api.get_all_domains().map! {|dom|dom["name"].downcase }.sort.uniq
+targ = domains.first
+
+options = {
+	:fallback_nameservers => %w(8.8.8.8 8.8.4.4),
+	:file => 'takeovers.txt',
+	:output => 'takeovers-log.txt',
+	:threads => 25,
+  :domain => targ
+}
+
+
+takeover = Aquatone::Commands::Takeover.run(options)
+
+if takeover.length == 0
+	puts "No vulnerable domains"
+else
+	takeover.each do |vuln|
+		msg = "Potential #{vuln[1]['service']} takeover on #{vuln[0]} (#{vuln[1]['resource']['value']})"
+		domain = vuln[0]
+		Api.notify_takeover(domain, msg)
+	end
+end

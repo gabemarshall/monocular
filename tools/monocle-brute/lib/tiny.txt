@@ -1,4 +1,5 @@
 200
+jira
 2000
 2001
 2002
@@ -35,6 +36,7 @@ admin
 400
 401
 403
+confluence
 404
 42
 5
@@ -47,6 +49,7 @@ admin
 7z
 8
 9
+cloud
 96
 A
 ADM

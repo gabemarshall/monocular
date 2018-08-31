@@ -12,40 +12,36 @@ opts = Slop.parse do |o|
 end
 
 
-
 module Api
-  def Api.services_from_search(host, key, query)
-    conn = Faraday.new host
+  def Api.services_from_search(query)
+    conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url '/api/search?q='+query
-      req.headers['X-Monocle-Key'] = key
+      req.url "#{MonocleRoutes::SEARCH}?q=#{query}"
+      req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
   end
 
-  def Api.notify_takeover(domain, msg)
+  def Api.notify_takeover(domain, msg, job_id)
     conn = Faraday.new $API_HOST
     
     resp = conn.post do |req|
-      req.url '/api/issue/create'
+      req.url MonocleRoutes::CREATE_ISSUE
       req.headers['X-Monocle-Key'] = $API_KEY
-      req.body = 'severity=critical&rule='+domain+'&name='+msg
+      req.body = 'jobid='+job_id.to_s+'&severity=critical&rule='+domain+'&name='+msg
     end
 
     return resp.body
   end
 
-
   def Api.get_all_domains()
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url '/api/domain/all'
+      req.url MonocleRoutes::ALL_DOMAINS
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     
@@ -58,27 +54,25 @@ module Api
   def Api.get_domains_query(query)
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
-      req.url "/api/search/domains?q=#{query}"
+      req.url "#{MonocleRoutes::SEARCH_DOMAINS}?q=#{query}"
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
   end
-
-
 end
 
 if opts[:debug]
-  services = Api.services_from_search(opts[:host],opts[:key], opts[:query])
+  $API_HOST = opts[:host]
+  $API_KEY = opts[:key]
+
+  services = Api.services_from_search(opts[:query])
   scan = Enumeration.new()
 
   scan.update_http(services)
-
 
   #services.each do |service|
     #ap service["type"]
