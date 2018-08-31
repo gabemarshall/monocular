@@ -8,7 +8,6 @@ module Aquatone
           exit 1
         end
 
-        @domain     = Aquatone::Domain.new(options[:domain])
         @assessment = Aquatone::Assessment.new(options[:domain])
 
         banner("Takeover")
@@ -16,8 +15,7 @@ module Aquatone
         prepare_detectors
         setup_resolver
         check_hosts
-        results = write_to_takeovers_file
-        return results
+        return @takeovers
       end
 
       private
@@ -98,24 +96,6 @@ module Aquatone
         output("Finished checking hosts:\n\n")
         output(" - Vulnerable     : #{bold(red(@takeovers_detected))}\n")
         output(" - Not Vulnerable : #{bold(green(@hosts.count - @takeovers_detected))}\n\n")
-      end
-
-      def write_to_takeovers_file
-        
-        output("Wrote #{bold(@takeovers.keys.count)} potential subdomain takeovers to:\n\n")
-
-        if options[:output]
-          File.open(options[:output], 'w') { |file| file.write(@takeovers.to_json) }
-          output(" - #{bold(options[:output])}\n\n")
-        else
-          puts "2"
-          @assessment.write_file("takeovers.json", @takeovers.to_json)
-          output(" - #{bold('file://' + File.join(@assessment.path, 'takeovers.json'))}\n\n")
-        end
-
-        return @takeovers
-        
-        
       end
 
       def output_progress

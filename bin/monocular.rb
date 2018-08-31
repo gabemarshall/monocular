@@ -56,11 +56,7 @@ def finalize(data, job_id)
     req.headers['Content-Type'] = 'application/json'
     req.headers['X-Monocle-Key'] = $API_KEY
     
-    begin
-        req.body = data.to_json
-    rescue => GeneratorError
-        req.body = data.to_safe_json
-    end    
+    req.body = data.to_safe_json
   end
 
   puts "Bye!"

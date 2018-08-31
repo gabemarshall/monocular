@@ -15,7 +15,6 @@ end
 
 module Api
   def Api.services_from_search(host, key, query)
-
     conn = Faraday.new host
     resp = conn.get do |req|
       req.url '/api/search?q='+query
@@ -44,23 +43,19 @@ module Api
 
 
   def Api.get_all_domains()
-
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
       req.url '/api/domain/all'
       req.headers['X-Monocle-Key'] = $API_KEY
     end
     
-    data = JSON.parse(resp.body)
-
-    return data
+    return JSON.parse(resp.body)
 
   rescue => exception
     puts exception.backtrace
   end
 
   def Api.get_domains_query(query)
-
     conn = Faraday.new $API_HOST
     resp = conn.get do |req|
       req.url "/api/search/domains?q=#{query}"

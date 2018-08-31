@@ -15,6 +15,6 @@ scheduler.every '4h' do
   end
   
   
-  scan = Enumeration.new
-  scan.takeovers("test.com")
+  enum = Enumeration.new
+  enum.takeovers("test.com")
 end
