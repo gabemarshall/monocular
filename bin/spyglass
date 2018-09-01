@@ -62,7 +62,10 @@ if ARGV[0] && !ARGV[0].include?("-")
     if split_col.length == 2
       opts[:port] = 443
     end
-    
+  else
+    if split_col.length == 2
+      opts[:port] = 80
+    end  
   end
 
   if !opts[:port]
