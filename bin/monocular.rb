@@ -9,7 +9,9 @@ require 'pry'
 
 opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
-  o.string '-k', '--key', 'API Key'
+  o.string '-k', '--key', 'API API Key'
+  o.string '-q', '--query', 'API Search Query'
+  o.string '-d', '--debug', 'Enable debug mode'
 end
 
 $API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']

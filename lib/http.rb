@@ -96,9 +96,6 @@ class HttpGrabber
                     
                     request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
                     request.on_complete do |response|
-                        unless response.code == 0
-                            puts "Request to #{hostname} has completed successfully"
-                        end
                         headers = response.response_headers rescue ""
                         headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
                         banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip

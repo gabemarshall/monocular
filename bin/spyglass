@@ -2,17 +2,41 @@
 require 'faraday'
 require 'json'
 require 'slop'
+require 'highline/import'
+require_relative('../lib/api_helper')
+require_relative('../lib/utils')
+require_relative('../config/monocle_routes')
 require_relative('../lib/http')
+
+# Todo - add Api.get_all_urls
 
 opts = Slop.parse do |o|
   o.string '-h', '--host', 'Monocle API Host'
   o.string '-k', '--key', 'API Key'
   o.string '--proxy', 'Use an HTTP proxy ex: http://127.0.0.1:8000'
-  o.string '-q', '--query', 'API Search Query'
-  o.string '-p', '--port', 'Enable debug mode'
+  o.bool '-q', '--query', 'Save results to Monocle API'
+  o.string '-p', '--port', 'Specify a port'
   o.string '-o', '--output', 'Save Output to json'
   o.bool '--ssl', 'Force SSL/TLS'
   o.bool '--tls', 'Force SSL/TLS'
+  o.bool '--api', 'Save results to Monocle API'
+end
+
+$API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']
+$API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
+
+def finalize(data, job_id)
+  data[:job_id] = job_id
+
+  conn = Faraday.new $API_HOST
+  resp = conn.post do |req|
+    req.url MonocleRoutes::FINALIZE_JOBS
+    req.headers['Content-Type'] = 'application/json'
+    req.headers['X-Monocle-Key'] = $API_KEY
+    req.body = data.to_safe_json
+  end
+
+  puts "Done."
 end
 
 str = (STDIN.tty?) ? '' : $stdin.readlines
@@ -29,14 +53,65 @@ if str.class == Array
     end
 end
 
-response_data = HttpGrabber.run(services, opts)
-if opts[:output]
-	File.open(opts[:output], 'w') do |file| 
-		response_data.each do |response|
-		    file.write response.to_json+"\n"
-		end
-	end
-else
-	puts response_data.to_json
+if ARGV[0] && !ARGV[0].include?("-")
+  split_col = ARGV[0].split(":")
+  split_slash = ARGV[0].split("/")
+  if ARGV[0].include?("https")
+    opts[:ssl] = true
+    
+    if split_col.length == 2
+      opts[:port] = 443
+    end
+    
+  end
+
+  if !opts[:port]
+    opts[:port] = /(^[0-9]{1,6})/i.match(split_col[2]).to_s.to_i
+  end
+
+  host_or_ip = split_slash[2].split(":")[0]
+  services.push(ip: host_or_ip, port: opts[:port])
+
+  
+elsif !ARGV[0]
+  puts opts
+  puts ""
+  puts "    spyglass http://example.com/ \# Make a single request similar to curl"
 end
 
+if services.length > 0 
+  response_data = HttpGrabber.run(services, opts)
+    response_data.each do |response|
+      puts ""
+      puts response[:hostname] + " (#{response[:ip]}) => #{response[:uri]} - [ #{response[:status_code]} ]"
+      if opts[:output]
+          File.open(opts[:output], 'w') do |file| 
+            response_data.each do |response|
+                file.write response.to_json+"\n"
+            end
+          end
+      elsif opts[:api]
+        if !$API_KEY
+          puts ""
+          puts "[!] Monocle API key is unknown "
+          puts ""
+          $API_KEY = ask "Monocle API Key: "
+        end
+
+        if !$API_HOST
+          puts ""
+          puts "[!] Monocle endpoint is unknown (ex: http://localhost:3000/) "
+          puts ""
+          $API_HOST = ask "Monocle Endpoint: "
+        end
+        job_results = {}
+        job_results[:services] = response_data
+        finalize(job_results, "spyglass")
+      else      
+        puts ""
+        puts response[:description]
+        puts ""
+        puts response[:banner][0..100]
+      end        
+    end
+end
