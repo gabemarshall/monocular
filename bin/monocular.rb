@@ -3,7 +3,6 @@ require 'json'
 require 'slop'
 require_relative('../lib/enum')
 require_relative('../lib/api_helper')
-require_relative('../lib/chores')
 require_relative('../lib/utils')
 require_relative('../config/monocle_routes')
 require 'pry'
