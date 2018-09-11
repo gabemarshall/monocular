@@ -1,13 +1,9 @@
-require 'sucker_punch'
 require 'faraday'
 require 'typhoeus'
 require 'typhoeus/adapters/faraday'
-require 'benchmark'
 require 'socket'
-require 'http'
 require 'openssl'
 require 'resolv'
-require 'pry'
 
 class HttpResponse
   def self.analyze(service)
@@ -22,30 +18,6 @@ class HttpResponse
     end
 
     puts service
-  end
-end
-
-class JobCounter
-  def initialize(count)
-    @count = count
-    @service_array = []
-  end
-
-  def get_count
-    return @count
-  end
-
-  def add(item)
-    @service_array.push(item)
-  end
-
-  def services
-    return @service_array
-  end
-
-  def subone
-    @count = @count - 1
-    return @count
   end
 end
 

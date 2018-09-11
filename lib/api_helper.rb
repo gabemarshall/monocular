@@ -2,7 +2,6 @@ require 'faraday'
 require 'json'
 require 'slop'
 require 'awesome_print'
-require_relative('enum')
 
 module Api
   def Api.services_from_search(query)
