@@ -23,7 +23,8 @@ end
 
 class HttpGrabber
 
-    def self.run(services=[], opts={})
+    def self.run(services=[], opts={}, use_exact_uri=false)
+        
         Typhoeus::Config.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36"
 
         hydra = Typhoeus::Hydra.new(max_concurrency: 25)
@@ -34,87 +35,115 @@ class HttpGrabber
         end
         $resps = []
         
-        services.each do |service|
+        if !use_exact_uri      
+          services.each do |service|
 
-            begin
-                hostname_exists = true
-                if service.key? :hostname
-                  hostname = service[:hostname]
-                  uri = service[:hostname]
-                else
-                  hostname = service[:ip]
-                  uri = service[:ip]
-                  if Resolv::IPv4::Regex.match?(service[:ip])
-                    hostname_exists = false
-                    hostname = nil
+              begin
+                  hostname_exists = true
+                  if service.key? :hostname
+                    hostname = service[:hostname]
+                    uri = service[:hostname]
+                  else
+                    hostname = service[:ip]
+                    uri = service[:ip]
+                    if Resolv::IPv4::Regex.match?(service[:ip])
+                      hostname_exists = false
+                      hostname = nil
+                    end
                   end
-                end
 
-                output = {}
+                  output = {}
 
-                if service[:port].to_s == "443" || service[:port].to_s == "8443" || opts[:ssl] || opts[:tls]
-                    puts "Queuing https://#{uri}:#{service[:port]}/"
-                    begin
-                      if !hostname_exists
-                        ssl_props = HttpGrabber.ssl_props(service[:ip], service[:port])
-                        if ssl_props.has_key? 'cn'
-                          uri = ssl_props[:cn]
-                          hostname_exists = true
-                        end
-                      end                    
-                    rescue => exception
-
-                    end
-                    
-                    request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
-                    request.on_complete do |response|
-                        headers = response.response_headers rescue ""
-                        headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
-                        banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
-                        if !Resolv::IPv4::Regex.match?(service[:ip])
-                            service[:ip] = response.primary_ip
-                        end
-                        unless banner.length == 0
-                          $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'https'})
-                        end
-                    end
-
-                else
-                    puts "Queuing http://#{uri}:#{service[:port]}/"
-
-                    request = Typhoeus::Request.new("http://#{uri}:#{service[:port]}/", monocleConfig)
-                    request.on_complete do |response|
-                        if response.code == 0
-                          puts "Request to #{hostname} error'd out"
-                        else
-                          puts "Request to #{hostname} has completed successfully"
-                        end
-                        headers = response.response_headers rescue ""
-                        headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
-                        banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
-                        if !Resolv::IPv4::Regex.match?(service[:ip])
-                            service[:ip] = response.primary_ip
-                        end
-                        unless banner.length == 0
-                          if headers.length > 0
-                            $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'http'})
-                          else
-                            $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner})
+                  if service[:port].to_s == "443" || service[:port].to_s == "8443" || opts[:ssl] || opts[:tls]
+                      
+                      begin
+                        if !hostname_exists
+                          ssl_props = HttpGrabber.ssl_props(service[:ip], service[:port])
+                          if ssl_props.has_key? 'cn'
+                            uri = ssl_props[:cn]
+                            hostname_exists = true
                           end
-                        end
-                    end
+                        end                    
+                      rescue => exception
 
+                      end
+                      
+                      
+                      puts "Queuing https://#{uri}:#{service[:port]}/"
+                      request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
+
+
+                      
+                      request.on_complete do |response|
+                          headers = response.response_headers rescue ""
+                          headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+                          banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
+                          if !Resolv::IPv4::Regex.match?(service[:ip])
+                              service[:ip] = response.primary_ip
+                          end
+                          unless banner.length == 0
+                            $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'https'})
+                          end
+                      end
+
+                  else
+                      puts "Queuing http://#{uri}:#{service[:port]}/"
+                      request = Typhoeus::Request.new("http://#{uri}:#{service[:port]}/", monocleConfig)
+                      
+                      request.on_complete do |response|
+                          if response.code == 0
+                            puts "Request to #{hostname} error'd out"
+                          else
+                            puts "Request to #{hostname} has completed successfully"
+                          end
+                          headers = response.response_headers rescue ""
+                          headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+                          banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
+                          if !Resolv::IPv4::Regex.match?(service[:ip])
+                              service[:ip] = response.primary_ip
+                          end
+                          unless banner.length == 0
+                            if headers.length > 0
+                              $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: 'http'})
+                            else
+                              $resps.push({ip: service[:ip], port: service[:port], hostname: hostname, banner: banner})
+                            end
+                          end
+                      end
+
+                  end
+
+
+                  hydra.queue(request)
+
+
+
+              rescue => exception
+
+                  puts ""
+              end
+          end
+        else
+          services.each do |service|
+            request = Typhoeus::Request.new(service, monocleConfig)
+
+            request.on_complete do |response|
+
+                headers = response.response_headers rescue ""
+                headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
+                banner = response.body.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?').strip
+                
+                puts "#{response.effective_url}"+" - [#{response.code}] (Content-Length: #{banner.length}) "
+                unless banner.length == 0
+                  type = "http"
+                  if response.effective_url.include?("https")
+                    type = "https"
+                  end
+                  $resps.push({ip: response.primary_ip, banner: banner, status_code: response.code, uri: response.effective_url, description: headers, service_type: type})
                 end
-
-
-                hydra.queue(request)
-
-
-
-            rescue => exception
-
-                puts ""
             end
+            hydra.queue(request)
+          end
         end
         hydra.run
         return $resps

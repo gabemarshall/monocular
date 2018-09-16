@@ -42,11 +42,12 @@ module Api
     puts exception.backtrace
   end
 
-  def Api.get_all_urls()
-    conn = Faraday.new $API_HOST
+  def Api.get_all_urls(api_host, api_key)
+    puts api_host
+    conn = Faraday.new api_host
     resp = conn.get do |req|
       req.url MonocleRoutes::ALL_URLS
-      req.headers['X-Monocle-Key'] = $API_KEY
+      req.headers['X-Monocle-Key'] = api_key
     end
     
     return JSON.parse(resp.body)

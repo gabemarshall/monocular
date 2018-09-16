@@ -17,11 +17,14 @@ opts = Slop.parse do |o|
   o.bool '-q', '--query', 'Save results to Monocle API'
   o.string '-p', '--port', 'Specify a port'
   o.string '-o', '--output', 'Save Output to json'
+  o.string '--path', 'Path to append to URLs'
+  o.bool '-u', '--urls', 'Retrieve Monocle URLs'
   o.bool '--ssl', 'Force SSL/TLS'
   o.bool '--tls', 'Force SSL/TLS'
   o.bool '--api', 'Save results to Monocle API'
 end
 
+$USE_EXACT_URI = false
 $API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']
 $API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
 
@@ -75,7 +78,18 @@ if ARGV[0] && !ARGV[0].include?("-")
   host_or_ip = split_slash[2].split(":")[0]
   services.push(ip: host_or_ip, port: opts[:port])
 
-  
+elsif opts[:urls]
+  $USE_EXACT_URI = true
+  url_data = Api.get_all_urls($API_HOST,$API_KEY)
+  url_data.each do |s|
+    if opts[:path]
+      f = s["uri"].split('/')
+      new_uri = f[0]+f[1]+'//'+f[2]+opts[:path]
+      services.push(new_uri)
+    else
+      services.push(s["uri"])
+    end
+  end
 elsif !ARGV[0]
   puts opts
   puts ""
@@ -83,10 +97,17 @@ elsif !ARGV[0]
 end
 
 if services.length > 0 
-  response_data = HttpGrabber.run(services, opts)
+  if $USE_EXACT_URI
+    response_data = HttpGrabber.run(services, opts, true)
+  else
+    response_data = HttpGrabber.run(services, opts)
+  end
+  
     response_data.each do |response|
       puts ""
-      puts response[:hostname] + " (#{response[:ip]}) => #{response[:uri]} - [ #{response[:status_code]} ]"
+      unless $USE_EXACT_URI
+        puts response[:hostname] + " (#{response[:ip]}) => #{response[:uri]} - [ #{response[:status_code]} ]"
+      end
       if opts[:output]
           File.open(opts[:output], 'w') do |file| 
             response_data.each do |response|
@@ -107,9 +128,11 @@ if services.length > 0
           puts ""
           $API_HOST = ask "Monocle Endpoint: "
         end
-        job_results = {}
-        job_results[:services] = response_data
-        finalize(job_results, "spyglass")
+        unless $USE_EXACT_URI
+          job_results = {}
+          job_results[:services] = response_data
+          finalize(job_results, "spyglass")
+        end
       else      
         puts ""
         puts response[:description]
