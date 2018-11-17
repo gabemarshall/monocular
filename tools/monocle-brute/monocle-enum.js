@@ -42,10 +42,12 @@ exports.parse = function(xml) {
 
 const child = spawn("nmap", [
   "-T4",
-  "155.199.192.27",
+  "192.241.196.88",
   "-Pn",
+  "-p3128",
   "-n",
   "--open",
+  "--script=banner",
   "-oX",
   "foob.xml"
 ]);

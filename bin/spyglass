@@ -7,6 +7,8 @@ require_relative('../lib/api_helper')
 require_relative('../lib/utils')
 require_relative('../config/monocle_routes')
 require_relative('../lib/http')
+require_relative('../lib/portscan')
+require 'pry'
 
 # Todo - add Api.get_all_urls
 
@@ -28,6 +30,20 @@ $USE_EXACT_URI = false
 $API_KEY = opts[:key] ||= ENV['MONOCLE_KEY']
 $API_HOST = opts[:host] ||= ENV['MONOCLE_HOST']
 
+def module_results(input)
+  case input
+  when "scan"
+    puts "scanning"
+    out = Portscan.banner(ARGV[1], ARGV[2])
+
+    non_http = out.select{|service| service[:banner] != nil}
+    http = out.select{|service| service[:type].include?("http") && service[:banner] == nil}
+    http_with_banners = HttpGrabber.run(http)
+    results = non_http.concat(http_with_banners)
+    return results
+  end
+end
+
 def finalize(data, job_id)
   data[:job_id] = job_id
 
@@ -40,6 +56,16 @@ def finalize(data, job_id)
   end
 
   puts "Done."
+end
+
+def save(data)
+    filename = (0...8).map { (65 + rand(26)).chr }.join.downcase+'.json'
+    File.open(filename, 'w') do |file| 
+      data.each do |result|
+        file.write result.to_json+"\n"
+      end
+    end
+    puts "Results written to #{filename}"
 end
 
 str = (STDIN.tty?) ? '' : $stdin.readlines
@@ -56,7 +82,7 @@ if str.class == Array
     end
 end
 
-if ARGV[0] && !ARGV[0].include?("-")
+if ARGV[0] && !ARGV[0].include?("-") && ARGV[0].include?(".")
   split_col = ARGV[0].split(":")
   split_slash = ARGV[0].split("/")
   if ARGV[0].include?("https")
@@ -74,8 +100,13 @@ if ARGV[0] && !ARGV[0].include?("-")
   if !opts[:port]
     opts[:port] = /(^[0-9]{1,6})/i.match(split_col[2]).to_s.to_i
   end
-
-  host_or_ip = split_slash[2].split(":")[0]
+  
+  begin
+    host_or_ip = split_slash[2].split(":")[0]
+  rescue 
+    puts "err"
+    exit
+  end
   services.push(ip: host_or_ip, port: opts[:port])
 
 elsif opts[:urls]
@@ -94,6 +125,8 @@ elsif !ARGV[0]
   puts opts
   puts ""
   puts "    spyglass http://example.com/ \# Make a single request similar to curl"
+else
+  #save(module_results(ARGV[0]))
 end
 
 if services.length > 0 

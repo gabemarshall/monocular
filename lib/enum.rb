@@ -191,9 +191,9 @@ class Enumeration
     end
     services.uniq! {|hash| hash.values_at(:hostname, :ip, :port)}
     
-    Typhoeus::Config.user_agent = "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/MonocleApp) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
-    hydra = Typhoeus::Hydra.new(max_concurrency: 15)
-    monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
+    Typhoeus::Config.user_agent = "Google Chrome Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+    hydra = Typhoeus::Hydra.new(max_concurrency: 30)
+    monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 2, timeout: 3}
 
     # save a copy of the nmap results for use on line...
     $resps = []
@@ -262,13 +262,13 @@ class Enumeration
   def update_http(services, proxy=nil)
     puts "########### Updating HTTP Services ############"
 
-    Typhoeus::Config.user_agent = "User-Agent: Mozilla/5.0 (Linux; U; Android 2.2; en-us; Droid Build/MonocleApp) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1"
-    hydra = Typhoeus::Hydra.new(max_concurrency: 5)
+    Typhoeus::Config.user_agent = "Google Chrome Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.36"
+    hydra = Typhoeus::Hydra.new(max_concurrency: 30)
 
     if proxy.nil?
-      monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
+      monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 2, timeout: 3}
     else
-      monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5, proxy: 'http://127.0.0.1:8080'}
+      monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 2, timeout: 3, proxy: 'http://127.0.0.1:8080'}
     end
     responses = []
     services.each do |service|

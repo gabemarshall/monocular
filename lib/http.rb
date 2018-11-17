@@ -27,11 +27,11 @@ class HttpGrabber
         
         Typhoeus::Config.user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/67.0.3396.99 Safari/537.36"
 
-        hydra = Typhoeus::Hydra.new(max_concurrency: 25)
+        hydra = Typhoeus::Hydra.new(max_concurrency: 60)
         if opts[:proxy]
           monocleConfig = {headers: {"X-Host" => "nEkTMLFV8ZC0", "X-Forwarded-Host" => "nEkTMLFV8ZC1", "X-Forwarded-Server"=>"nEkTMLFV8ZC2", "X-Original-URL"=>"nEkTMLFV8ZC3"},followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5, proxy: opts[:proxy]}
         else
-          monocleConfig = {headers: {"X-Host" => "nEkTMLFV8ZC0", "X-Forwarded-Host" => "nEkTMLFV8ZC1", "X-Forwarded-Server"=>"nEkTMLFV8ZC2", "X-Original-URL"=>"nEkTMLFV8ZC3"},followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 5, timeout: 5}
+          monocleConfig = {followlocation: true, ssl_verifypeer: false, ssl_verifyhost: 0, connecttimeout: 2, timeout: 4}
         end
         $resps = []
         
@@ -56,17 +56,17 @@ class HttpGrabber
 
                   if service[:port].to_s == "443" || service[:port].to_s == "8443" || opts[:ssl] || opts[:tls]
                       
-                      begin
-                        if !hostname_exists
-                          ssl_props = HttpGrabber.ssl_props(service[:ip], service[:port])
-                          if ssl_props.has_key? 'cn'
-                            uri = ssl_props[:cn]
-                            hostname_exists = true
-                          end
-                        end                    
-                      rescue => exception
+                      # begin
+                      #   if !hostname_exists
+                      #     ssl_props = HttpGrabber.ssl_props(service[:ip], service[:port])
+                      #     if ssl_props.has_key? 'cn'
+                      #       uri = ssl_props[:cn]
+                      #       hostname_exists = true
+                      #     end
+                      #   end                    
+                      # rescue => exception
 
-                      end
+                      # end
                       
                       
                       puts "Queuing https://#{uri}:#{service[:port]}/"

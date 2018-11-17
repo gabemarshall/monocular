@@ -17,6 +17,16 @@ module Api
     puts exception.backtrace
   end
 
+  def Api.take_job(id)
+    conn = Faraday.new $API_HOST
+    resp = conn.post do |req|
+      req.url MonocleRoutes::ACCEPT_JOBS
+      req.headers['X-Monocle-Key'] = $API_KEY
+      req.body = 'id=' + id.to_s
+    end
+
+    return resp.body
+  end
   def Api.notify_takeover(domain, msg, job_id)
     conn = Faraday.new $API_HOST
     

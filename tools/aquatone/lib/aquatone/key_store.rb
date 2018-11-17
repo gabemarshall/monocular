@@ -5,7 +5,7 @@ module Aquatone
     class KeyStoreFileNotWritable < Error; end
     class KeyStoreFileCorrupt < Error; end
 
-    KEY_STORE_FILE_LOCATION = File.join(Aquatone.aquatone_path, ".keys.yml").freeze
+    KEY_STORE_FILE_LOCATION = File.join(".aquatonekeys.yml").freeze
 
     def self.get(name)
       keys[name]

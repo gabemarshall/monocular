@@ -42,6 +42,30 @@ class Portscan
 
         return res
     end
+    def self.banner(target, args)
+
+      rand_id = (0...10).map { ('a'..'z').to_a[rand(20)] }.join
+      portscan_temp_file = "nmap-#{rand_id}.xml"
+      portscan_args = "#{target} -p #{args} -Pn -n --open -T4 -vvv --script=banner -oX output/#{portscan_temp_file} -oN output/#{rand_id}.nmap"
+
+      # Split into an array so that we can safely pass them to a system call
+      safe_arguments = portscan_args.split(" ")
+
+      Open3.popen2e('nmap', *safe_arguments) do |stdin, stdout_stderr, wait_thread|
+        Thread.new do
+          stdout_stderr.each {|l|
+            puts l
+          }
+        end
+
+
+        wait_thread.value
+      end
+
+      res = self.save('output/'+portscan_temp_file)
+
+      return res
+    end
 
     def self.run_list(ips, args)
         
@@ -77,12 +101,13 @@ class Portscan
               puts "[#{host.ip}]"
               host.each_port do |port|
                 if port.state.to_s == "open"
-                    final_results.push({ip: host.ip, port: port.number, type: port.service.to_s})
+                    hostname = host.hostname.nil? ? nil : host.hostname.name
+                    banner = port.scripts.empty? ? nil : port.scripts["banner"]
+                    final_results.push({ip: host.ip, port: port.number, type: port.service.to_s, hostname: hostname, banner: banner})
                 end
               end
             end
         end
-        puts "Deleting temporary files #{scan_file}}"
         File.delete(scan_file)
         return final_results
     end
