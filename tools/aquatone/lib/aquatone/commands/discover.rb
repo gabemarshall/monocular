@@ -94,6 +94,7 @@ module Aquatone
           end
           jitter_sleep
           task_count += 1
+          puts task_count
         end
         output("\n", true)
       end

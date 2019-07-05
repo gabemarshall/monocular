@@ -1,0 +1,4 @@
+name: Testing
+type: string 
+rule: Server:\s*libwww-perl-daemon(?:/([\d\.]+))?
+severity: low

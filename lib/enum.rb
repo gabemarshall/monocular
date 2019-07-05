@@ -12,7 +12,6 @@ require 'faraday'
 require 'typhoeus'
 require 'typhoeus/adapters/faraday'
 require 'awesome_print'
-require 'pry'
 
 module Ports
 

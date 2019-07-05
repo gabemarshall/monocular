@@ -1,0 +1,1 @@
+my_array.push(name: 'libwww-perl-daemon, headers', rule: 'Server:\s*libwww-perl-daemon(?:/([\d\.]+))?', triaged: true)

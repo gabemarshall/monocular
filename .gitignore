@@ -1,4 +1,5 @@
 *.gem
+.aquatonekeys.yml
 *.rbc
 /.config
 /coverage/
@@ -13,6 +14,7 @@
 /output/*
 # Used by dotenv library to load environment variables.
 # .env
+.monocular_identity
 
 ## Specific to RubyMotion:
 .dat*

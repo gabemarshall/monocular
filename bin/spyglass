@@ -17,6 +17,7 @@ opts = Slop.parse do |o|
   o.string '-k', '--key', 'API Key'
   o.string '--proxy', 'Use an HTTP proxy ex: http://127.0.0.1:8000'
   o.bool '-q', '--query', 'Save results to Monocle API'
+  o.bool '--dry-run', 'No scans will be performed (currently only for --urls option)'
   o.string '-p', '--port', 'Specify a port'
   o.string '-o', '--output', 'Save Output to json'
   o.string '--path', 'Path to append to URLs'
@@ -55,7 +56,6 @@ def finalize(data, job_id)
     req.body = data.to_safe_json
   end
 
-  puts "Done."
 end
 
 def save(data)
@@ -73,11 +73,22 @@ services = []
 
 if str.class == Array
     str.each do |line|
-        service = line.strip!.split(':')
-        if service.length > 1
-        	services.push(ip: service[0], port: service[1].strip)
+        if line.include?('//')
+          $USE_EXACT_URI = true
+          if opts[:path]
+            f = line.split('/')
+            new_uri = f[0]+f[1]+'//'+f[2]+opts[:path]
+            services.push(new_uri)
+          else
+            services.push(line.strip)
+          end
         else
-        	services.push(ip: service[0], port: opts[:port])
+          service = line.strip!.split(':')
+          if service.length > 1
+            services.push(ip: service[0], port: service[1].strip)
+          else
+            services.push(ip: service[0], port: opts[:port])
+          end  
         end
     end
 end
@@ -112,6 +123,10 @@ if ARGV[0] && !ARGV[0].include?("-") && ARGV[0].include?(".")
 elsif opts[:urls]
   $USE_EXACT_URI = true
   url_data = Api.get_all_urls($API_HOST,$API_KEY)
+  if opts[:dry_run]
+    puts url_data.map{|u|u["uri"]}
+    exit
+  end
   url_data.each do |s|
     if opts[:path]
       f = s["uri"].split('/')
@@ -121,7 +136,7 @@ elsif opts[:urls]
       services.push(s["uri"])
     end
   end
-elsif !ARGV[0]
+elsif !ARGV[0] && services.length == 0
   puts opts
   puts ""
   puts "    spyglass http://example.com/ \# Make a single request similar to curl"
@@ -139,7 +154,13 @@ if services.length > 0
     response_data.each do |response|
       puts ""
       unless $USE_EXACT_URI
-        puts response[:hostname] + " (#{response[:ip]}) => #{response[:uri]} - [ #{response[:status_code]} ]"
+        hostname = ''
+        if response[:hostname].nil?
+          hostname = response[:ip]
+        else
+          hostname = response[:hostname]
+        end
+        puts hostname + " (#{response[:ip]}) => #{response[:uri]} - [ #{response[:status_code]} ]"
       end
       if opts[:output]
           File.open(opts[:output], 'w') do |file| 

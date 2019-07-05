@@ -1,0 +1,7 @@
+admin.eversec.rocks,192.168.0.100
+eversec.rocks,192.241.196.88
+scoreboard.eversec.rocks,192.168.0.100
+storage.eversec.rocks,76.204.59.165
+vpn.eversec.rocks,76.204.59.165
+wiki.eversec.rocks,192.168.0.100
+www.eversec.rocks,192.241.196.88

@@ -1,5 +1,7 @@
 require 'json'
-
+require_relative('../config/monocle_routes')
+# https://gist.github.com/equivalent/b492f6779e99ee9defb2
+# 
 def clean(data)
   return data.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')
 end

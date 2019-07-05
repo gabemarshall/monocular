@@ -1,6 +1,5 @@
 require 'http'
 require 'nokogiri'
-require 'pry'
 require_relative("../tools/aquatone/lib/aquatone")
 
 class Passive

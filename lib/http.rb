@@ -69,7 +69,7 @@ class HttpGrabber
                       # end
                       
                       
-                      puts "Queuing https://#{uri}:#{service[:port]}/"
+                      #puts "GET https://#{uri}:#{service[:port]}/"
                       request = Typhoeus::Request.new("https://#{uri}:#{service[:port]}/", monocleConfig)
 
 
@@ -87,14 +87,14 @@ class HttpGrabber
                       end
 
                   else
-                      puts "Queuing http://#{uri}:#{service[:port]}/"
+                      #puts "[-] http://#{uri}:#{service[:port]}/"
                       request = Typhoeus::Request.new("http://#{uri}:#{service[:port]}/", monocleConfig)
                       
                       request.on_complete do |response|
                           if response.code == 0
-                            puts "Request to #{hostname} error'd out"
+                            #puts "Request to #{response.effective_url} error'd out"
                           else
-                            puts "Request to #{hostname} has completed successfully"
+                            #puts "Request to #{response.effective_url} has completed successfully"
                           end
                           headers = response.response_headers rescue ""
                           headers = headers.to_s.encode('UTF-8', invalid: :replace, undef: :replace, replace: '?')

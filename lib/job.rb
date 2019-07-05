@@ -6,6 +6,9 @@ require_relative('jobs/domain_sucker')
 module JobHandler
   def JobHandler.take(job)
     puts "Taking available job"
+    j = Job.new(job)
+    j.schedule = 'in-progress'
+    j.save!
     job_id = job['id']
     job_sched = job['schedule']
     target = job['target']
