@@ -9,7 +9,7 @@
   "dependencies": {
     "array-unique": "^0.3.2",
     "async": "^2.6.1",
-    "axios": "^0.18.0",
+    "axios": "^0.21.1",
     "bluebird": "^3.5.1",
     "body-parser": "*",
     "cheerio": "^1.0.0-rc.2",
