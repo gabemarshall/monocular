@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "array-unique": "^0.3.2",
-    "async": "^2.6.1",
+    "async": "^3.2.2",
     "axios": "^0.18.0",
     "bluebird": "^3.5.1",
     "body-parser": "*",
